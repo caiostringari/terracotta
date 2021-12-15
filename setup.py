@@ -72,7 +72,8 @@ setup(
         'rasterio>=1.0,<=1.1.8',  # TODO: unpin when performance issues with GDAL3 are fixed
         'shapely',
         'toml',
-        'tqdm'
+        'tqdm',
+        "matplotlib"
     ],
     extras_require={
         'test': [

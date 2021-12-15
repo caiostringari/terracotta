@@ -7,8 +7,7 @@ from typing import Sequence, Mapping, Union, Tuple, TypeVar
 from typing.io import BinaryIO
 
 from matplotlib.pyplot import get_cmap
-
-from matplotlib.colors import LightSource
+from matplotlib.colors import (LightSource, Normalize)
 
 import numpy as np
 
@@ -20,7 +19,7 @@ from terracotta.profile import trace
 Number = TypeVar("Number", int, float)
 # RGBA = Tuple[Number, Number, Number, Number]
 
-# tile resolution for each level starting at 0.
+# tile resolution for each level starting at level 0.
 TILE_RESOLUTION = [
     156412,
     78206,
@@ -72,7 +71,7 @@ def hillshade(
     driver = get_driver(settings.DRIVER_PATH, provider=settings.DRIVER_PROVIDER)
 
     with driver.connect():
-        # metadata = driver.get_metadata(keys)
+        metadata = driver.get_metadata(keys)
         tile_data = xyz.get_tile_data(
             driver,
             keys,
@@ -82,23 +81,33 @@ def hillshade(
         )
 
     # compute the hillshade
+    try:
+        _, _, tile_z = tile_xyz
+        dx = TILE_RESOLUTION[tile_z]
+        dy = TILE_RESOLUTION[tile_z]
+    except Exception:
+        dx = 1
+        dy = 1
+
+    # compute the shadding
+    norm = Normalize(vmin=metadata["range"][0], vmax=metadata["range"][1], clip=False)
     ls = LightSource(azdeg=azimuth_degree, altdeg=altitude_degree)
     rgb = ls.shade(
-        tile_data,
+        np.ma.masked_invalid(tile_data),
         cmap=cmap,
         blend_mode=blend_mode,
         vert_exag=vertical_exaggeration,
-        dx=1,
-        dy=1,
+        dx=dx,
+        dy=dy,
+        norm = norm
     )
 
     # rgb is between 0 and, scale it to 0-255. store as uint8.
-    out = ((rgb - rgb.min()) * (1/(rgb.max() - rgb.min()) * 255)).astype('uint8')
+    r = image.to_uint8(rgb[:, :, 0], 0, 1)
+    g = image.to_uint8(rgb[:, :, 1], 0, 1)
+    b = image.to_uint8(rgb[:, :, 2], 0, 1)
 
-    # r = image.to_uint8(rgb[:, :, 0], rgb[:, :, 0].min(), rgb[:, :, 0].max())
-    # g = image.to_uint8(rgb[:, :, 1], rgb[:, :, 1].min(), rgb[:, :, 1].max())
-    # b = image.to_uint8(rgb[:, :, 2], rgb[:, :, 2].min(), rgb[:, :, 2].max())
-
-    # out = np.ma.stack([r, g, b], axis=-1)
+    out = np.ma.stack([r, g, b], axis=-1)
+    out[np.ma.masked_invalid(tile_data).mask] = 0
 
     return image.array_to_png(out)
