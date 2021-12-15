@@ -82,11 +82,7 @@ def hillshade(
         )
 
     # compute the hillshade
-    try:
-        _, _, tile_z = tile_xyz
-    except:
-        tile_z = 0
-
+    _, _, tile_z = tile_xyz
     ls = LightSource(azdeg=azimuth_degree, altdeg=altitude_degree)
     rgb = ls.shade(
         tile_data,
@@ -97,7 +93,7 @@ def hillshade(
         dy=TILE_RESOLUTION[tile_z],
     )
 
-    # rgb is between 0 and 1, scale it to 0-255. store as uint8.
+    # rgb is between 0 and, scale it to 0-255. store as uint8.
     out = ((rgb - rgb.min()) * (1/(rgb.max() - rgb.min()) * 255)).astype('uint8')
 
     return image.array_to_png(out)
