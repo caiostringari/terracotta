@@ -98,9 +98,9 @@ def hillshade(
     )
 
     # rgb is between 0 and, scale it to 0-255. store as uint8.
-    r = image.to_uint8(rgb[:, :, 0], rgb[:, :, 0].min(), rgb[:, :, 0].max())
-    g = image.to_uint8(rgb[:, :, 1], rgb[:, :, 1].min(), rgb[:, :, 1].max())
-    b = image.to_uint8(rgb[:, :, 2], rgb[:, :, 2].min(), rgb[:, :, 2].max())
+    r = image.to_uint8(rgb[:, :, 0], 0, 1)
+    g = image.to_uint8(rgb[:, :, 1], 0, 1)
+    b = image.to_uint8(rgb[:, :, 2], 0, 1)
 
     out = np.ma.stack([r, g, b], axis=-1)
 
