@@ -97,11 +97,7 @@ def hillshade(
         dy=TILE_RESOLUTION[tile_z],
     )
 
-    # rgb is between 0 and, scale it to 0-255. store as uint8.
-    r = image.to_uint8(rgb[:, :, 0], 0, 1)
-    g = image.to_uint8(rgb[:, :, 1], 0, 1)
-    b = image.to_uint8(rgb[:, :, 2], 0, 1)
+    # rgb is between 0 and 1, scale it to 0-255. store as uint8.
+    out = ((rgb - rgb.min()) * (1/(rgb.max() - rgb.min()) * 255)).astype('uint8')
 
-    out = np.ma.stack([r, g, b], axis=-1)
-
-    return image.array_to_png(out[:, :, 0:3])
+    return image.array_to_png(out)
