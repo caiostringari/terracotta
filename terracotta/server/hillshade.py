@@ -40,7 +40,7 @@ class HillshadeOptionSchema(Schema):
     # only matplotlib colormaps are allowed
     colormap = fields.String(
         description="Colormap to apply to image (see /colormap)",
-        validate=validate.OneOf(colormaps().tolist),
+        validate=validate.OneOf(colormaps()),
         missing="Greys_r",
     )
 
