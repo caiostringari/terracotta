@@ -37,10 +37,10 @@ class ContourOptionSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
-
-    color = fields.String(
-        description="Any colour in hexadecimal notation.",
-        missing="#0000FF",
+    color = fields.List(
+        fields.Number(), validate=validate.Length(equal=3), required=False,
+        description='A list with three RGB values in the 0.-1. range.',
+        missing=[0., 0., 0.],
     )
 
     interval = fields.Number(

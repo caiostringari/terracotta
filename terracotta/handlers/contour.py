@@ -9,6 +9,8 @@ from typing.io import BinaryIO
 
 import matplotlib as mpl
 mpl.use("Agg")
+
+from matplotlib import colors
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -26,8 +28,8 @@ def contour(
     keys: Union[Sequence[str], Mapping[str, str]],
     tile_xyz: Tuple[int, int, int] = None,
     *,
-    color: str,
-    interval: int,
+    color: Tuple[int, int, int] = None,
+    interval: int = None,
     tile_size: Tuple[int, int] = None
 ) -> BinaryIO:
     """Return singleband image rendered as hillshade PNG"""
@@ -49,19 +51,17 @@ def contour(
         )
 
     # compute the contours
-
     intervals = np.arange(metadata["range"][0], metadata["range"][1], interval)
-
     contours = []
     for v in intervals:
-        ctns = measure.find_contours(tile_data, v)
+        ctns = measure.find_contours(np.ma.masked_invalid(tile_data), v)
         for ctn in ctns:
             contours.append(ctn)
 
     # render
     fig, ax = plt.subplots(figsize=(2.56,2.56), dpi=100, **{"tight_layout": True, "frameon": False})
     for contour in contours:
-        ax.plot(contour[:, 1], contour[:, 0], linewidth=1, color="r")
+        ax.plot(contour[:, 1], contour[:, 0], linewidth=1, color=colors.rgb2hex(color))
     ax.set_axis_off()
     ax.set_xlim(0, 255)
     ax.set_ylim(0, 255)
