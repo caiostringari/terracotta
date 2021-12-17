@@ -90,6 +90,7 @@ def create_app(debug: bool = False, profile: bool = False) -> Flask:
     import terracotta.server.singleband
     import terracotta.server.compute
     import terracotta.server.hillshade
+    import terracotta.server.contour
 
     new_app = Flask('terracotta.server')
     new_app.debug = debug
@@ -121,6 +122,8 @@ def create_app(debug: bool = False, profile: bool = False) -> Flask:
         SPEC.path(view=terracotta.server.hillshade.get_hillshade_preview)
         SPEC.path(view=terracotta.server.compute.get_compute)
         SPEC.path(view=terracotta.server.compute.get_compute_preview)
+        SPEC.path(view=terracotta.server.contour.get_contour)
+        SPEC.path(view=terracotta.server.contour.get_contour_preview)
 
     import terracotta.server.spec
     new_app.register_blueprint(SPEC_API, url_prefix='')
