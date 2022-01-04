@@ -90,6 +90,7 @@ def create_app(debug: bool = False, profile: bool = False) -> Flask:
     import terracotta.server.singleband
     import terracotta.server.compute
     import terracotta.server.hillshade
+    import terracotta.server.rrim
 
     new_app = Flask('terracotta.server')
     new_app.debug = debug
