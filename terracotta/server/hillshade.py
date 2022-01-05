@@ -25,9 +25,7 @@ from terracotta.server.flask_api import TILE_API
 
 
 class HillshadeQuerySchema(Schema):
-    keys = fields.String(
-        required=True, description="Keys identifying dataset, in order"
-    )
+    keys = fields.String(required=True, description="Keys identifying dataset, in order")
     tile_z = fields.Int(required=True, description="Requested zoom level")
     tile_y = fields.Int(required=True, description="y coordinate")
     tile_x = fields.Int(required=True, description="x coordinate")
@@ -62,7 +60,7 @@ class HillshadeOptionSchema(Schema):
     blend_mode = fields.String(
         description='Blend mode. One of: "hsv", "overlay", "soft"',
         validate=validate.OneOf(["hsv", "overlay", "soft"]),
-        missing="overlay",
+        missing="soft",
     )
 
     tile_size = fields.List(
@@ -118,9 +116,7 @@ def get_hillshade(tile_z: int, tile_y: int, tile_x: int, keys: str) -> Response:
 
 
 class HillshadePreviewSchema(Schema):
-    keys = fields.String(
-        required=True, description="Keys identifying dataset, in order"
-    )
+    keys = fields.String(required=True, description="Keys identifying dataset, in order")
 
 
 @TILE_API.route("/hillshade/<path:keys>/preview.png", methods=["GET"])
