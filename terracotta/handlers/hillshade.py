@@ -6,12 +6,18 @@ Handle /hillshade API endpoint.
 from typing import Sequence, Mapping, Union, Tuple, TypeVar
 from typing.io import BinaryIO
 
+from io import BytesIO
+
+from PIL import Image
+
 from matplotlib.pyplot import get_cmap
 from matplotlib.colors import LightSource, Normalize
 
+from skimage.util import img_as_ubyte
+
 import numpy as np
 
-from terracotta import get_settings, update_settings, get_driver, image, xyz
+from terracotta import get_settings, get_driver, xyz
 from terracotta.profile import trace
 
 Number = TypeVar("Number", int, float)
@@ -89,11 +95,11 @@ def hillshade(
 
     # compute the shadding
     norm = Normalize(
-        vmin=metadata["range"][0] - metadata["range"][0] * 0.25,
-        vmax=metadata["range"][1] + metadata["range"][1] * 0.25,
-        clip=True,
+        vmin=metadata["range"][0],
+        vmax=metadata["range"][1],
+        clip=False,
     )
-    print(metadata["range"][0], metadata["range"][1])
+
     ls = LightSource(azdeg=azimuth_degree, altdeg=altitude_degree)
 
     rgb = ls.shade(
@@ -108,13 +114,16 @@ def hillshade(
         vmax=metadata["range"][1],
     )
 
+    # Important - This by-passes terracotas strange encoding.
+
     # rgb is between 0 and, scale it to 0-255. store as uint8.
-    # smooth if asked
-    r = image.to_uint8(rgb[:, :, 0], 0, 1)
-    g = image.to_uint8(rgb[:, :, 1], 0, 1)
-    b = image.to_uint8(rgb[:, :, 2], 0, 1)
+    rgb = img_as_ubyte(rgb)
 
-    out = np.ma.stack([r, g, b], axis=-1)
-    out[np.ma.masked_invalid(tile_data).mask] = 0  # zero means transparent
+    # encode as png
+    img = Image.fromarray(rgb)
 
-    return image.array_to_png(out[:, :, 0:3])
+    sio = BytesIO()
+    img.save(sio, format="PNG", compress_level=settings.PNG_COMPRESS_LEVEL)
+    sio.seek(0)  # reset file pointer to start
+
+    return sio

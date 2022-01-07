@@ -1,6 +1,6 @@
-"""server/hillshade.py
+"""server/discrete.py
 
-Flask route to handle /hillshade calls.
+Flask route to handle /discrete calls.
 """
 
 from typing import Any, Mapping, Dict, Tuple
@@ -24,14 +24,14 @@ from terracotta.server.flask_api import TILE_API
 # from terracotta.cmaps import AVAILABLE_CMAPS
 
 
-class HillshadeQuerySchema(Schema):
+class DiscreteQuerySchema(Schema):
     keys = fields.String(required=True, description="Keys identifying dataset, in order")
     tile_z = fields.Int(required=True, description="Requested zoom level")
     tile_y = fields.Int(required=True, description="y coordinate")
     tile_x = fields.Int(required=True, description="x coordinate")
 
 
-class HillshadeOptionSchema(Schema):
+class DiscreteOptionSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
@@ -39,28 +39,22 @@ class HillshadeOptionSchema(Schema):
     colormap = fields.String(
         description="Colormap to apply to image (see /colormap)",
         validate=validate.OneOf(colormaps()),
-        missing="Greys_r",
+        missing="viridis",
     )
 
-    azimuth_degree = fields.Number(
-        description="The azimuth (0-360, degrees clockwise from North) of the light source.",
-        missing=315,
+    n_classes = fields.Number(
+        description="Number of classes to use. Defaults to 16.",
+        missing=16,
     )
 
-    altitude_degree = fields.Number(
-        description="The altitude (0-90, degrees up from horizontal) of the light source.",
-        missing=45,
+    vmin = fields.Number(
+        description="Minimum value to consider for rendering. If missing, uses data's minimum value.",
+        missing=None,
     )
 
-    vertical_exaggeration = fields.Number(
-        description="The amount to exaggerate the elevation values by when calculating illumination. This can be used either to correct for differences in units between the x-y coordinate system and the elevation coordinate system (e.g. decimal degrees vs. meters) or to exaggerate or de-emphasize topography.",
-        missing=10,
-    )
-
-    blend_mode = fields.String(
-        description='Blend mode. One of: "hsv", "overlay", "soft"',
-        validate=validate.OneOf(["hsv", "overlay", "soft"]),
-        missing="soft",
+    vmax = fields.Number(
+        description="Maximum value to consider for rendering. If missing, uses data's maximum value.",
+        missing=None,
     )
 
     tile_size = fields.List(
@@ -73,7 +67,7 @@ class HillshadeOptionSchema(Schema):
     @pre_load
     def decode_json(self, data: Mapping[str, Any], **kwargs: Any) -> Dict[str, Any]:
         data = dict(data.items())
-        for var in ("colormap", "azimuth_degree", "altitude_degree", "vertical_exaggeration", "blend_mode"):
+        for var in ("colormap", "n_classes", "vmin", "vmax"):
             val = data.get(var)
             if val:
                 try:
@@ -86,20 +80,20 @@ class HillshadeOptionSchema(Schema):
 
 
 @TILE_API.route(
-    "/hillshade/<path:keys>/<int:tile_z>/<int:tile_x>/<int:tile_y>.png",
+    "/discrete/<path:keys>/<int:tile_z>/<int:tile_x>/<int:tile_y>.png",
     methods=["GET"],
 )
-def get_hillshade(tile_z: int, tile_y: int, tile_x: int, keys: str) -> Response:
+def get_discrete(tile_z: int, tile_y: int, tile_x: int, keys: str) -> Response:
     """Return multi-band PNG image of requested tile
     ---
     get:
-        summary: /hillshade (tile)
+        summary: /discrete (tile)
         description: Return multi-band PNG image of requested XYZ tile
         parameters:
             - in: path
-              schema: HillshadeQuerySchema
+              schema: DiscreteQuerySchema
             - in: query
-              schema: HillshadeOptionSchema
+              schema: DiscreteOptionSchema
         responses:
             200:
                 description:
@@ -112,25 +106,25 @@ def get_hillshade(tile_z: int, tile_y: int, tile_x: int, keys: str) -> Response:
                     No dataset found for given key combination
     """
     tile_xyz = (tile_x, tile_y, tile_z)
-    return _get_hillshade(keys, tile_xyz)
+    return _get_discrete(keys, tile_xyz)
 
 
-class HillshadePreviewSchema(Schema):
+class DiscretePreviewSchema(Schema):
     keys = fields.String(required=True, description="Keys identifying dataset, in order")
 
 
-@TILE_API.route("/hillshade/<path:keys>/preview.png", methods=["GET"])
-def get_hillshade_preview(keys: str) -> Response:
+@TILE_API.route("/discrete/<path:keys>/preview.png", methods=["GET"])
+def get_discrete_preview(keys: str) -> Response:
     """Return multi-band PNG preview image of requested dataset
     ---
     get:
-        summary: /hillshade (preview)
+        summary: /discrete (preview)
         description: Return muilt-band PNG preview image of requested dataset
         parameters:
             - in: path
-              schema: HillshadePreviewSchema
+              schema: DiscretePreviewSchema
             - in: query
-              schema: HillshadeOptionSchema
+              schema: DiscreteOptionSchema
         responses:
             200:
                 description:
@@ -142,17 +136,17 @@ def get_hillshade_preview(keys: str) -> Response:
                 description:
                     No dataset found for given key combination
     """
-    return _get_hillshade(keys)
+    return _get_discrete(keys)
 
 
-def _get_hillshade(keys: str, tile_xyz: Tuple[int, int, int] = None) -> Response:
-    from terracotta.handlers.hillshade import hillshade
+def _get_discrete(keys: str, tile_xyz: Tuple[int, int, int] = None) -> Response:
+    from terracotta.handlers.discrete import discrete
 
     parsed_keys = [key for key in keys.split("/") if key]
 
-    option_schema = HillshadeOptionSchema()
+    option_schema = DiscreteOptionSchema()
     options = option_schema.load(request.args)
 
-    image = hillshade(parsed_keys, tile_xyz=tile_xyz, **options)
+    image = discrete(parsed_keys, tile_xyz=tile_xyz, **options)
 
     return send_file(image, mimetype="image/png")
