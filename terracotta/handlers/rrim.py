@@ -15,7 +15,7 @@ import rvt.vis
 
 # import collections
 
-from terracotta import get_settings, get_driver, image, xyz
+from terracotta import get_settings, update_settings, get_driver, image, xyz
 from terracotta.profile import trace
 
 Number = TypeVar("Number", int, float)
@@ -55,13 +55,14 @@ def rrim(
     # colormap: str,
     
     # RRIM parameters
-    nodatavalue : -9999,
+    nodatavalue : -999999,
     svf_n_dir : 8,
-    svf_r_max : 10,
+    svf_r_max : 20,
     svf_noise : 0,
-    saturation : 90,
-    brithness : 150,
+    saturation : 80,
+    brithness : 40,
     blend_mode : str,
+    # resampling_method,
 
     tile_size: Tuple[int, int] = None
 ) -> BinaryIO:
@@ -71,6 +72,7 @@ def rrim(
     #     cmap = get_cmap(colormap)
     # except Exception:
     #     cmap = get_cmap("Greys_r")  # defaults to grey
+    # update_settings(RESAMPLING_METHOD=resampling_method)
 
     settings = get_settings()
     if tile_size is None:
@@ -85,7 +87,7 @@ def rrim(
             keys,
             tile_xyz,
             tile_size=tile_size,
-            preserve_values=True,
+            preserve_values=False,
         )
 
     # compute the rrim
@@ -177,8 +179,8 @@ def rrim(
 
     RRIM_map = colorScheme(color_size)
     result = np.zeros((slopedata.shape[0], slopedata.shape[1], 3), dtype = np.uint8)
-    output_fname = r"C:\Users\agraham\terracotta_cs\rrim_test\rrim_test.tif"
-    cv2.imwrite(output_fname, result)
+    # output_fname = r"C:\Users\agraham\terracotta_cs\rrim_test\rrim_test.tif"
+    # cv2.imwrite(output_fname, result)
     # Compute the color given by the slope
     inc = np.uint8(abs(slopedata))
     inc[inc > (color_size[0]-1)] = color_size[0] - 1
@@ -211,6 +213,6 @@ def rrim(
     # b = image.to_uint8(rgb[:, :, 2], 0, 1)
 
     # out = np.ma.stack([r, g, b], axis=-1)
-    # out[np.ma.masked_invalid(tile_data).mask] = 0
+    result[np.ma.masked_invalid(tile_data).mask] = 0
 
     return image.array_to_png(result)

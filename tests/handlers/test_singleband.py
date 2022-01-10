@@ -8,7 +8,7 @@ import pytest
 def test_singleband_handler(use_testdb, raster_file_xyz,
                             resampling_method):
     import terracotta
-    terracotta.update_settings(RESAMPLING_METHOD=resampling_method)
+    terracotta.update_settings(RESAMPLING_METHOD='cubic')
 
     from terracotta.handlers import datasets, singleband
     settings = terracotta.get_settings()

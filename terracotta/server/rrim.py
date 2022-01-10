@@ -88,7 +88,7 @@ class RRIMOptionSchema(Schema):
     blend_mode = fields.String(
         description='Blend mode. One of: "hsv", "overlay", "soft"',
         validate=validate.OneOf(["hsv", "overlay", "soft"]),
-        missing="overlay",
+        missing="soft",
     )
 
     tile_size = fields.List(
