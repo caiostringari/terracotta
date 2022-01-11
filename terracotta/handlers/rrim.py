@@ -46,6 +46,43 @@ TILE_RESOLUTION = [
     0.149,
 ]
 
+def colorScheme(size):
+        """
+        Function to compute color scheme from HSV to RGB
+        Function from Xin Yao : https://github.com/susurrant/
+
+        Args:
+            size (tupple of integers): (a, b, c); a gives the saturation, b the brithness
+                                    and c correspond to the number of bands of the image; this is set to 3
+
+        Returns:[ro]
+            RRIM_map (x * y * 3 uint8 array) : RGB array
+        """
+        
+        img_hsv = np.zeros(size, dtype=np.uint8)
+        
+
+        # saturation
+        saturation_values = np.linspace(0, 255, size[0])
+        for i in range(0, size[0]):
+            img_hsv[i, :, 1] = np.ones(size[1], dtype=np.uint8) * np.uint8(saturation_values[i])
+
+        # value
+        V_values = np.linspace(0, 255, size[1])
+        for i in range(0, size[1]):
+            img_hsv[:, i, 2] = np.ones(size[0], dtype=np.uint8) * np.uint8(V_values[i])
+
+        # print(img_hsv)
+        # output_fname = r"C:\Users\agraham\terracotta_cs\rrim_test\rrim_test.tif"
+        # print(output_fname)
+        # cv2.imwrite(output_fname, cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR))
+        return cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR)
+
+def crop_center(img, cropx, cropy):
+    y,x,c = img.shape
+    startx = x//2 - cropx//2
+    starty = y//2 - cropy//2    
+    return img[starty:starty+cropy, startx:startx+cropx, :]
 
 @trace("rrim_handler")
 def rrim(
@@ -55,12 +92,12 @@ def rrim(
     # colormap: str,
     
     # RRIM parameters
-    nodatavalue : -999999,
-    svf_n_dir : 8,
-    svf_r_max : 20,
-    svf_noise : 0,
-    saturation : 80,
-    brithness : 40,
+    nodatavalue : int,
+    svf_n_dir : int,
+    svf_r_max : int,
+    svf_noise : int,
+    saturation : int,
+    brithness : int,
     blend_mode : str,
     # resampling_method,
 
@@ -79,18 +116,17 @@ def rrim(
         tile_size = settings.DEFAULT_TILE_SIZE
 
     driver = get_driver(settings.DRIVER_PATH, provider=settings.DRIVER_PROVIDER)
-
+    # DEFAULT_TILE_SIZE: Tuple[int, int] = (256, 256)
     with driver.connect():
         metadata = driver.get_metadata(keys)
         tile_data = xyz.get_tile_data(
             driver,
             keys,
             tile_xyz,
-            tile_size=tile_size,
+            tile_size=[tile_size[0]+svf_r_max, tile_size[0]+svf_r_max],
             preserve_values=False,
         )
 
-    # compute the rrim
     try:
         _, _, tile_z = tile_xyz
         dx = TILE_RESOLUTION[tile_z]
@@ -107,8 +143,8 @@ def rrim(
     # load the DEM
     # DEM = rd.LoadGDAL(demname, no_data = nodatavalue)
     DEM = np.asarray(tile_data)
-    print("HERE")
-    print(DEM)
+    # print("HERE")
+    # print(DEM)
 
     dict_slope_aspect = rvt.vis.slope_aspect(dem = DEM, 
                                             resolution_x = dx, 
@@ -150,37 +186,10 @@ def rrim(
     # Compute the differential openness
     openness = (pos_opns_arr - neg_opns_arr) / 2
 
-    def colorScheme(size):
-        """
-        Function to compute color scheme from HSV to RGB
-        Function from Xin Yao : https://github.com/susurrant/
-
-        Args:
-            size (tupple of integers): (a, b, c); a gives the saturation, b the brithness
-                                    and c correspond to the number of bands of the image; this is set to 3
-
-        Returns:[ro]
-            RRIM_map (x * y * 3 uint8 array) : RGB array
-        """
-        
-        img_hsv = np.zeros(size, dtype=np.uint8)
-
-        # saturation
-        saturation_values = np.linspace(0, 255, size[0])
-        for i in range(0, size[0]):
-            img_hsv[i, :, 1] = np.ones(size[1], dtype=np.uint8) * np.uint8(saturation_values[i])
-
-        # value
-        V_values = np.linspace(0, 255, size[1])
-        for i in range(0, size[1]):
-            img_hsv[:, i, 2] = np.ones(size[0], dtype=np.uint8) * np.uint8(V_values[i])
-
-        return cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR)
-
+    # print(color_size)
     RRIM_map = colorScheme(color_size)
     result = np.zeros((slopedata.shape[0], slopedata.shape[1], 3), dtype = np.uint8)
-    # output_fname = r"C:\Users\agraham\terracotta_cs\rrim_test\rrim_test.tif"
-    # cv2.imwrite(output_fname, result)
+    
     # Compute the color given by the slope
     inc = np.uint8(abs(slopedata))
     inc[inc > (color_size[0]-1)] = color_size[0] - 1
@@ -192,6 +201,12 @@ def rrim(
   
     # build the RGB tuples
     result = RRIM_map[inc, openness_val]
+    result[np.ma.masked_invalid(tile_data).mask] = 0
+
+    print(result.shape)
+    # result = crop_center(result, 256, 256)
+    print(result)
+    print(type(result))
     # Update the progress-bar
 
     # # compute the shadding
@@ -208,11 +223,9 @@ def rrim(
     # )
 
     # # rgb is between 0 and, scale it to 0-255. store as uint8.
-    # r = image.to_uint8(rgb[:, :, 0], 0, 1)
-    # g = image.to_uint8(rgb[:, :, 1], 0, 1)
-    # b = image.to_uint8(rgb[:, :, 2], 0, 1)
+    b = result[:, :, 0]
+    g = result[:, :, 1]
+    r = result[:, :, 2]
 
-    # out = np.ma.stack([r, g, b], axis=-1)
-    result[np.ma.masked_invalid(tile_data).mask] = 0
-
+    result = np.ma.stack([r, g, b], axis=-1)
     return image.array_to_png(result)
