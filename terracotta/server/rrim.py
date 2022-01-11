@@ -47,28 +47,28 @@ class RRIMOptionSchema(Schema):
 
     # RRIM PARAMETERS GO HERE
     nodatavalue = fields.Number(
-        description="The source no data value",
+        description="Value used to describe No Data",
         missing = -9999)
 
-    svf_n_dir = fields.Number(
-        description="",
+    svf_n_dir = fields.Integer(
+        description="number of directions for openness",
         missing = 8)
 
-    svf_r_max = fields.Number(
-        description="",
+    svf_r_max = fields.Integer(
+        description="max search radius in pixels for openness",
         missing = 10)
 
-    svf_noise = fields.Number(
-        description="",
+    svf_noise = fields.Integer(
+        description="level of noise remove for openness 0-dont remove, 1-low, 2-med, 3-highDefault to 0",
         missing = 0)
 
-    saturation = fields.Number(
-        description="",
-        missing = 90)
+    saturation = fields.Integer(
+        description="manages the red saturation (from slope) Used to build the HSV color scale Default to 90",
+        missing = 100)
 
-    brithness = fields.Number(
+    brithness = fields.Integer(
         description="",
-        missing = 150)
+        missing = 40)
 
     # azimuth_degree = fields.Number(
     #     description="The azimuth (0-360, degrees clockwise from North) of the light source.",
@@ -88,7 +88,7 @@ class RRIMOptionSchema(Schema):
     blend_mode = fields.String(
         description='Blend mode. One of: "hsv", "overlay", "soft"',
         validate=validate.OneOf(["hsv", "overlay", "soft"]),
-        missing="soft",
+        missing="overlay",
     )
 
     tile_size = fields.List(
@@ -101,7 +101,7 @@ class RRIMOptionSchema(Schema):
     @pre_load
     def decode_json(self, data: Mapping[str, Any], **kwargs: Any) -> Dict[str, Any]:
         data = dict(data.items())
-        for var in ("colormap", "blend_mode"):
+        for var in ("svf_n_dir", "svf_r_max", "svf_noise", "saturation", "brithness"):
             val = data.get(var)
             if val:
                 try:
