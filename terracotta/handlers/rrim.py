@@ -11,12 +11,14 @@ from matplotlib.colors import (LightSource, Normalize)
 
 import cv2
 import numpy as np
+import rasterio
 import rvt.vis
 
 # import collections
 
 from terracotta import get_settings, update_settings, get_driver, image, xyz
 from terracotta.profile import trace
+
 
 Number = TypeVar("Number", int, float)
 # RGBA = Tuple[Number, Number, Number, Number]
@@ -61,7 +63,6 @@ def colorScheme(size):
         
         img_hsv = np.zeros(size, dtype=np.uint8)
         
-
         # saturation
         saturation_values = np.linspace(0, 255, size[0])
         for i in range(0, size[0]):
@@ -79,10 +80,23 @@ def colorScheme(size):
         return cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR)
 
 def crop_center(img, cropx, cropy):
-    y,x,c = img.shape
-    startx = x//2 - cropx//2
-    starty = y//2 - cropy//2    
-    return img[starty:starty+cropy, startx:startx+cropx, :]
+    y, x, *_ = img.shape
+    startx = x // 2 - (cropx // 2)
+    starty = y // 2 - (cropy // 2)    
+    return img[starty:starty + cropy, startx:startx + cropx, ...]
+
+def insert_at(big_arr, small_arr, pos):
+    x1 = pos[0]
+    y1 = pos[1]
+    x2 = x1 + small_arr.shape[0]
+    y2 = y1 + small_arr.shape[1]
+
+    assert x2  <= big_arr.shape[0], "the position will make the small matrix exceed the boundaries at x"
+    assert y2  <= big_arr.shape[1], "the position will make the small matrix exceed the boundaries at y"
+
+    big_arr[x1:x2,y1:y2] = small_arr
+
+    return big_arr
 
 @trace("rrim_handler")
 def rrim(
@@ -117,15 +131,93 @@ def rrim(
 
     driver = get_driver(settings.DRIVER_PATH, provider=settings.DRIVER_PROVIDER)
     # DEFAULT_TILE_SIZE: Tuple[int, int] = (256, 256)
+    print(tile_xyz)
+
     with driver.connect():
         metadata = driver.get_metadata(keys)
-        tile_data = xyz.get_tile_data(
+
+    # for row in range(3):
+    tile_xyz_topleft = [tile_xyz[0] + 1, tile_xyz[1] + 1, tile_xyz[2]]
+    tile_xyz_left = [tile_xyz[0], tile_xyz[1] + 1, tile_xyz[2]]
+    tile_xyz_bottomleft = [tile_xyz[0] + 1, tile_xyz[1] - 1, tile_xyz[2]]
+    tile_xyz_bottom = [tile_xyz[0] + 1, tile_xyz[1] - 1, tile_xyz[2]]
+    tile_xyz_bottomright = [tile_xyz[0] - 1, tile_xyz[1] - 1, tile_xyz[2]]
+    tile_xyz_right = [tile_xyz[0], tile_xyz[1] - 1, tile_xyz[2]]
+    tile_xyz_topright = [tile_xyz[0] + 1, tile_xyz[1] - 1, tile_xyz[2]]
+    tile_xyz_top = [tile_xyz[0] + 1, tile_xyz[1], tile_xyz[2]]
+
+    tile_data_topleft = xyz.get_tile_data(
+            driver,
+            keys,
+            tile_xyz_topleft,
+            tile_size=[tile_size[0], tile_size[1]],
+            preserve_values=False,
+        )
+
+    tile_data_top = xyz.get_tile_data(
+            driver,
+            keys,
+            tile_xyz_top,
+            tile_size=[tile_size[0], tile_size[1]],
+            preserve_values=False,
+        )
+    
+    tile_data_topright = xyz.get_tile_data(
+            driver,
+            keys,
+            tile_xyz_topright,
+            tile_size=[tile_size[0], tile_size[1]],
+            preserve_values=False,
+        )
+
+    # tile_data_big = xyz.get_tile_data(
+    #         driver,
+    #         keys,
+    #         tile_xyz,
+    #         tile_size=[tile_size[0]*3, tile_size[1]*3],
+    #         preserve_values=False,
+    #     )
+
+    tile_data = xyz.get_tile_data(
             driver,
             keys,
             tile_xyz,
-            tile_size=[tile_size[0]+svf_r_max, tile_size[0]+svf_r_max],
+            tile_size=[tile_size[0], tile_size[1]],
             preserve_values=False,
         )
+
+    tile_buffered = np.zeros((tile_size[0]*3, tile_size[1]*3))
+    print(tile_buffered.shape)
+    print('tile buf dim:')
+    print(tile_buffered.ndim)
+    print(tile_data.ndim)
+
+    # tile_buffered = insert_at(tile_buffered, tile_data_topleft, (0,0))
+
+    tile_buffered[0:256, 0:256] = tile_data_topleft
+    tile_buffered[256:512, 0:256] = tile_data_top
+    tile_buffered[512:768, 0:256] = tile_data_topright
+    tile_buffered[256:512, 256:512] = tile_data
+
+    print('tile buf dim:')
+    print(tile_buffered.ndim)
+
+        # tile_buffered = 
+        # tile_data = tile_buffered
+            
+
+            # for col in range(3):
+            #     tile_xyz_buffer = ()
+
+            #     tile_data = xyz.get_tile_data(
+            #         driver,
+            #         keys,
+            #         tile_xyz_buffer,
+            #         tile_size=[tile_size[0], tile_size[1]],
+            #         preserve_values=False,
+            #     )
+
+            # tiles9 = tile_data
 
     try:
         _, _, tile_z = tile_xyz
@@ -142,18 +234,18 @@ def rrim(
 
     # load the DEM
     # DEM = rd.LoadGDAL(demname, no_data = nodatavalue)
-    DEM = np.asarray(tile_data)
+    DEM = np.asarray(tile_buffered)
     # print("HERE")
     # print(DEM)
 
     dict_slope_aspect = rvt.vis.slope_aspect(dem = DEM, 
-                                            resolution_x = dx, 
-                                            resolution_y = dy,
-                                            output_units = "degree", 
-                                            ve_factor = 1, 
-                                            #no_data=nodatavalue, # problem with dem[dem == no_data] = np.nan
-                                            no_data = None)# ,
-                                            # fill_no_data = False, keep_original_no_data = False)
+                                             resolution_x = dx, 
+                                             resolution_y = dy,
+                                             output_units = "degree", 
+                                             ve_factor = 1, 
+                                             # no_data=nodatavalue, # problem with dem[dem == no_data] = np.nan
+                                             no_data = None)# ,
+                                             # fill_no_data = False, keep_original_no_data = False)
     
     slopedata = dict_slope_aspect["slope"]
 
@@ -201,11 +293,19 @@ def rrim(
   
     # build the RGB tuples
     result = RRIM_map[inc, openness_val]
-    result[np.ma.masked_invalid(tile_data).mask] = 0
+    # result = crop_center(result, 50, 50)
+    # #tile_data_crop = xyz.get_tile_data(
+    #         driver,
+    #         keys,
+    #         tile_xyz,
+    #         tile_size=[50, 50],
+    #         preserve_values=False,
+    #     )
+    # result[np.ma.masked_invalid(tile_data_crop).mask] = 0
 
     print(result.shape)
     # result = crop_center(result, 256, 256)
-    print(result)
+    # print(result)
     print(type(result))
     # Update the progress-bar
 
