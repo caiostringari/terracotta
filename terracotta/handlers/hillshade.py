@@ -6,14 +6,18 @@ Handle /hillshade API endpoint.
 from typing import Sequence, Mapping, Union, Tuple, TypeVar
 from typing.io import BinaryIO
 
+from io import BytesIO
+
+from PIL import Image
+
 from matplotlib.pyplot import get_cmap
-from matplotlib.colors import (LightSource, Normalize)
+from matplotlib.colors import LightSource, Normalize
+
+from skimage.util import img_as_ubyte
 
 import numpy as np
 
-# import collections
-
-from terracotta import get_settings, get_driver, image, xyz
+from terracotta import get_settings, get_driver, xyz
 from terracotta.profile import trace
 
 Number = TypeVar("Number", int, float)
@@ -55,7 +59,7 @@ def hillshade(
     altitude_degree: Number,
     vertical_exaggeration: Number,
     blend_mode: str,
-    tile_size: Tuple[int, int] = None
+    tile_size: Tuple[int, int] = None,
 ) -> BinaryIO:
     """Return singleband image rendered as hillshade PNG"""
 
@@ -77,7 +81,7 @@ def hillshade(
             keys,
             tile_xyz,
             tile_size=tile_size,
-            preserve_values=True,
+            preserve_values=False,
         )
 
     # compute the hillshade
@@ -90,8 +94,14 @@ def hillshade(
         dy = 1
 
     # compute the shadding
-    norm = Normalize(vmin=metadata["range"][0], vmax=metadata["range"][1], clip=False)
+    norm = Normalize(
+        vmin=metadata["range"][0],
+        vmax=metadata["range"][1],
+        clip=False,
+    )
+
     ls = LightSource(azdeg=azimuth_degree, altdeg=altitude_degree)
+
     rgb = ls.shade(
         np.ma.masked_invalid(tile_data),
         cmap=cmap,
@@ -99,15 +109,21 @@ def hillshade(
         vert_exag=vertical_exaggeration,
         dx=dx,
         dy=dy,
-        norm = norm
+        norm=norm,
+        vmin=metadata["range"][0],
+        vmax=metadata["range"][1],
     )
 
+    # Important - This by-passes terracotas strange encoding.
+
     # rgb is between 0 and, scale it to 0-255. store as uint8.
-    r = image.to_uint8(rgb[:, :, 0], 0, 1)
-    g = image.to_uint8(rgb[:, :, 1], 0, 1)
-    b = image.to_uint8(rgb[:, :, 2], 0, 1)
+    rgb = img_as_ubyte(rgb)
 
-    out = np.ma.stack([r, g, b], axis=-1)
-    out[np.ma.masked_invalid(tile_data).mask] = 0
+    # encode as png
+    img = Image.fromarray(rgb)
 
-    return image.array_to_png(out)
+    sio = BytesIO()
+    img.save(sio, format="PNG", compress_level=settings.PNG_COMPRESS_LEVEL)
+    sio.seek(0)  # reset file pointer to start
+
+    return sio
