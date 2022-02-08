@@ -4,6 +4,7 @@ Handle /rrim API endpoint.
 """
 
 from typing import Sequence, Mapping, Union, Tuple, TypeVar
+from weakref import CallableProxyType
 from typing.io import BinaryIO
 
 from matplotlib.pyplot import get_cmap
@@ -132,51 +133,14 @@ def rrim(
     driver = get_driver(settings.DRIVER_PATH, provider=settings.DRIVER_PROVIDER)
     # DEFAULT_TILE_SIZE: Tuple[int, int] = (256, 256)
     print(tile_xyz)
+    print('buffer size in meters...')
+    print(TILE_RESOLUTION[tile_xyz[2]]*svf_r_max)
 
+    TILE_RESOLUTION[tile_xyz[2]]*svf_r_max
     with driver.connect():
         metadata = driver.get_metadata(keys)
 
-    # for row in range(3):
-    tile_xyz_topleft = [tile_xyz[0] + 1, tile_xyz[1] + 1, tile_xyz[2]]
-    tile_xyz_left = [tile_xyz[0], tile_xyz[1] + 1, tile_xyz[2]]
-    tile_xyz_bottomleft = [tile_xyz[0] + 1, tile_xyz[1] - 1, tile_xyz[2]]
-    tile_xyz_bottom = [tile_xyz[0] + 1, tile_xyz[1] - 1, tile_xyz[2]]
-    tile_xyz_bottomright = [tile_xyz[0] - 1, tile_xyz[1] - 1, tile_xyz[2]]
-    tile_xyz_right = [tile_xyz[0], tile_xyz[1] - 1, tile_xyz[2]]
-    tile_xyz_topright = [tile_xyz[0] + 1, tile_xyz[1] - 1, tile_xyz[2]]
-    tile_xyz_top = [tile_xyz[0] + 1, tile_xyz[1], tile_xyz[2]]
-
-    tile_data_topleft = xyz.get_tile_data(
-            driver,
-            keys,
-            tile_xyz_topleft,
-            tile_size=[tile_size[0], tile_size[1]],
-            preserve_values=False,
-        )
-
-    tile_data_top = xyz.get_tile_data(
-            driver,
-            keys,
-            tile_xyz_top,
-            tile_size=[tile_size[0], tile_size[1]],
-            preserve_values=False,
-        )
-    
-    tile_data_topright = xyz.get_tile_data(
-            driver,
-            keys,
-            tile_xyz_topright,
-            tile_size=[tile_size[0], tile_size[1]],
-            preserve_values=False,
-        )
-
-    # tile_data_big = xyz.get_tile_data(
-    #         driver,
-    #         keys,
-    #         tile_xyz,
-    #         tile_size=[tile_size[0]*3, tile_size[1]*3],
-    #         preserve_values=False,
-    #     )
+    # tile_size = (100, 100)
 
     tile_data = xyz.get_tile_data(
             driver,
@@ -184,41 +148,12 @@ def rrim(
             tile_xyz,
             tile_size=[tile_size[0], tile_size[1]],
             preserve_values=False,
+            buffer = svf_r_max
         )
-
-    tile_buffered = np.zeros((tile_size[0]*3, tile_size[1]*3))
-    print(tile_buffered.shape)
-    print('tile buf dim:')
-    print(tile_buffered.ndim)
-    print(tile_data.ndim)
-
-    # tile_buffered = insert_at(tile_buffered, tile_data_topleft, (0,0))
-
-    tile_buffered[0:256, 0:256] = tile_data_topleft
-    tile_buffered[256:512, 0:256] = tile_data_top
-    tile_buffered[512:768, 0:256] = tile_data_topright
-    tile_buffered[256:512, 256:512] = tile_data
-
-    print('tile buf dim:')
-    print(tile_buffered.ndim)
-
-        # tile_buffered = 
-        # tile_data = tile_buffered
-            
-
-            # for col in range(3):
-            #     tile_xyz_buffer = ()
-
-            #     tile_data = xyz.get_tile_data(
-            #         driver,
-            #         keys,
-            #         tile_xyz_buffer,
-            #         tile_size=[tile_size[0], tile_size[1]],
-            #         preserve_values=False,
-            #     )
-
-            # tiles9 = tile_data
-
+    
+    print('tile data shape:')
+    print(tile_data.shape)
+    
     try:
         _, _, tile_z = tile_xyz
         dx = TILE_RESOLUTION[tile_z]
@@ -234,7 +169,7 @@ def rrim(
 
     # load the DEM
     # DEM = rd.LoadGDAL(demname, no_data = nodatavalue)
-    DEM = np.asarray(tile_buffered)
+    DEM = np.asarray(tile_data)
     # print("HERE")
     # print(DEM)
 
@@ -293,17 +228,21 @@ def rrim(
   
     # build the RGB tuples
     result = RRIM_map[inc, openness_val]
-    # result = crop_center(result, 50, 50)
-    # #tile_data_crop = xyz.get_tile_data(
-    #         driver,
-    #         keys,
-    #         tile_xyz,
-    #         tile_size=[50, 50],
-    #         preserve_values=False,
-    #     )
-    # result[np.ma.masked_invalid(tile_data_crop).mask] = 0
+    # print(result.shape)
 
-    print(result.shape)
+    result = crop_center(result, tile_size[0], tile_size[1])
+ 
+    # print(result.shape)
+    tile_data_crop = xyz.get_tile_data(
+            driver,
+            keys,
+            tile_xyz,
+            tile_size=[tile_size[0], tile_size[1]],
+            preserve_values=False,
+        )
+    result[np.ma.masked_invalid(tile_data_crop).mask] = 0
+
+    # print(result.shape)
     # result = crop_center(result, 256, 256)
     # print(result)
     print(type(result))
