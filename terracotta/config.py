@@ -56,10 +56,10 @@ class TerracottaSettings(NamedTuple):
     REMOTE_DB_CACHE_TTL: int = 10 * 60  # 10 min
 
     #: Resampling method to use when reading reprojected data
-    RESAMPLING_METHOD: str = 'average'
+    RESAMPLING_METHOD: str = 'cubic'
 
     #: Resampling method to use when reprojecting data to Web Mercator
-    REPROJECTION_METHOD: str = 'linear'
+    REPROJECTION_METHOD: str = 'cubic'
 
     #: CORS allowed origins for metadata endpoint
     ALLOWED_ORIGINS_METADATA: List[str] = ['*']

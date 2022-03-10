@@ -83,6 +83,7 @@ def create_app(debug: bool = False, profile: bool = False) -> Flask:
     import terracotta.server.singleband
     import terracotta.server.compute
     import terracotta.server.hillshade
+    import terracotta.server.rrim
     import terracotta.server.discrete
 
     new_app = Flask("terracotta.server")
@@ -113,6 +114,8 @@ def create_app(debug: bool = False, profile: bool = False) -> Flask:
         SPEC.path(view=terracotta.server.rgb.get_rgb_preview)
         SPEC.path(view=terracotta.server.hillshade.get_hillshade)
         SPEC.path(view=terracotta.server.hillshade.get_hillshade_preview)
+        SPEC.path(view=terracotta.server.rrim.get_rrim)
+        SPEC.path(view=terracotta.server.rrim.get_rrim_preview)
         SPEC.path(view=terracotta.server.compute.get_compute)
         SPEC.path(view=terracotta.server.compute.get_compute_preview)
         SPEC.path(view=terracotta.server.discrete.get_discrete)
