@@ -8,7 +8,7 @@ from typing import Sequence, Union, Mapping, Tuple, Any
 import mercantile
 
 from terracotta import exceptions
-from terracotta.drivers.base import Driver
+from terracotta.drivers.terracotta_driver import TerracottaDriver
 
 # tile resolution for each level starting at level 0.
 TILE_RESOLUTION = [
@@ -37,7 +37,7 @@ TILE_RESOLUTION = [
 
 
 # TODO: add accurate signature if mypy ever supports conditional return types
-def get_tile_data(driver: Driver,
+def get_tile_data(driver: TerracottaDriver,
                   keys: Union[Sequence[str], Mapping[str, str]],
                   tile_xyz: Tuple[int, int, int] = None,
                   *, tile_size: Tuple[int, int] = (256, 256),
